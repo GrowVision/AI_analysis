@@ -12,7 +12,7 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: <YOUR_DB_NAME>     # ← Renderの既存Postgres名
+          name: restaurant-ai-db    # ← Renderの既存Postgres名
           property: connectionString
       - key: REDIS_URL
         fromService:               # 下に定義する Key-Value の接続URLを流し込む
@@ -42,7 +42,7 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: <YOUR_DB_NAME>
+          name: restaurant-ai-db
           property: connectionString
       - key: REDIS_URL
         fromService:
