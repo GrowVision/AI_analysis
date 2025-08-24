@@ -1,0 +1,61 @@
+# render.yaml （リポジトリ直下に保存）
+previews:
+  generation: automatic   # PRごとにプレビュー環境を自動生成
+services:
+  - type: web
+    name: restaurant-ai-web
+    runtime: python
+    region: oregon        # ←DBと同じリージョンに
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:     # 既存の Render Postgres を参照
+          name: restaurant-ai-db     # ←あなたが作ったDB名に合わせる
+          property: connectionString
+      - key: REDIS_URL
+        fromService:      # 下で作る Key Value の接続URLを参照
+          name: restaurant-ai-kv
+          type: keyvalue
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false       # 初回デプロイ時に値入力（YAMLに直書きしない）
+
+  - type: worker
+    name: restaurant-ai-worker
+    runtime: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py     # まずはダミーでOK（後で実装）
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: restaurant-ai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: restaurant-ai-kv
+          type: keyvalue
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+
+  - type: cron
+    name: restaurant-ai-daily
+    runtime: python
+    schedule: "15 21 * * *"           # UTC 21:15 = JST 06:15
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/daily_job.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: restaurant-ai-db
+          property: connectionString
+
+  - type: keyvalue
+    name: restaurant-ai-kv
+    # 内部接続のみにするなら空配列（外部から繋がせない）
+    ipAllowList: []                    # Only allow internal connections
+
+# 既存のDBは「databases:」に定義しなくてOK（参照だけで可）
+# ※同じ名前の既存インスタンスに対してもBlueprintを適用できます
