@@ -22,17 +22,17 @@ services:
           type: keyvalue
           property: connectionString
       - key: GEMINI_API_KEY
-        sync: PENDING
+        sync: false
       - key: S3_ENDPOINT
-        sync: PENDING
+        sync: false
       - key: S3_BUCKET
-        sync: PENDING
+        sync: false
       - key: S3_ACCESS_KEY
-        sync: PENDING
+        sync: false
       - key: S3_SECRET_KEY
-        sync: PENDING
+        sync: false
       - key: SLACK_WEBHOOK_URL
-        sync: PENDING
+        sync: false
 
   # --- Worker（非同期ジョブ。まずはダミー起動でOK） ---
   - type: worker
