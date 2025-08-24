@@ -1,36 +1,50 @@
-# render.yaml （リポジトリ直下に保存）
+# render.yaml（フル版：Web / Worker / Cron / Key-Value をまとめて管理）
 previews:
-  generation: automatic   # PRごとにプレビュー環境を自動生成
+  generation: automatic   # PRごとに自動でプレビュー環境を作る（不要なら消してOK）
+
 services:
+  # --- Web (FastAPIなど) ---
   - type: web
     name: restaurant-ai-web
     runtime: python
-    region: oregon        # ←DBと同じリージョンに
+    region: oregon                 # ← あなたのDBと同じリージョンに
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true               # pushで自動デプロイ（運用に合わせて変更可）
     envVars:
       - key: DATABASE_URL
-        fromDatabase:     # 既存の Render Postgres を参照
-          name: restaurant-ai-db     # ←あなたが作ったDB名に合わせる
+        fromDatabase:
+          name: <YOUR_DB_NAME>     # ← Renderの既存Postgres名
           property: connectionString
       - key: REDIS_URL
-        fromService:      # 下で作る Key Value の接続URLを参照
+        fromService:               # 下に定義する Key-Value の接続URLを流し込む
           name: restaurant-ai-kv
           type: keyvalue
           property: connectionString
       - key: GEMINI_API_KEY
-        sync: false       # 初回デプロイ時に値入力（YAMLに直書きしない）
+        sync: PENDING
+      - key: S3_ENDPOINT
+        sync: PENDING
+      - key: S3_BUCKET
+        sync: PENDING
+      - key: S3_ACCESS_KEY
+        sync: PENDING
+      - key: S3_SECRET_KEY
+        sync: PENDING
+      - key: SLACK_WEBHOOK_URL
+        sync: PENDING
 
+  # --- Worker（非同期ジョブ。まずはダミー起動でOK） ---
   - type: worker
     name: restaurant-ai-worker
     runtime: python
     region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: python worker.py     # まずはダミーでOK（後で実装）
+    startCommand: python worker.py  # 中身は後述のダミーでOK（先に起動だけ通す）
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: restaurant-ai-db
+          name: <YOUR_DB_NAME>
           property: connectionString
       - key: REDIS_URL
         fromService:
@@ -40,10 +54,12 @@ services:
       - key: GEMINI_API_KEY
         sync: false
 
+  # --- Cron（定刻バッチ。JST 06:15 = UTC 21:15の例） ---
   - type: cron
     name: restaurant-ai-daily
     runtime: python
-    schedule: "15 21 * * *"           # UTC 21:15 = JST 06:15
+    region: oregon
+    schedule: "15 21 * * *"        # UTC指定：毎日 21:15 UTC（= 翌朝 06:15 JST）
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/daily_job.py
     envVars:
@@ -52,10 +68,7 @@ services:
           name: restaurant-ai-db
           property: connectionString
 
+  # --- Key-Value（Redis互換：Celery/RQのbrokerなどに） ---
   - type: keyvalue
     name: restaurant-ai-kv
-    # 内部接続のみにするなら空配列（外部から繋がせない）
-    ipAllowList: []                    # Only allow internal connections
-
-# 既存のDBは「databases:」に定義しなくてOK（参照だけで可）
-# ※同じ名前の既存インスタンスに対してもBlueprintを適用できます
+    ipAllowList: []                 # 内部接続のみ許可（外部から繋がせない）
