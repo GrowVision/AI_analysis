@@ -127,3 +127,40 @@ async def ingest_sales(
                     # 1行おきに失敗しても全体は続行
                     print("ROW ERROR:", e, row)
     return JSONResponse({"status": "ok", "inserted": inserted})
+
+# --- 既存 main.py の末尾などに追記 ---
+from typing import Optional
+from fastapi import Query
+
+@app.get("/analytics/menu-daily")
+def menu_daily(
+    store_id: Optional[int] = Query(None),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[str] = Query(None, description="YYYY-MM-DD（含まれない上限）")
+):
+    cond = []
+    params = {}
+    if store_id is not None:
+        cond.append("store_id = %(store_id)s")
+        params["store_id"] = store_id
+    if date_from:
+        cond.append("day >= %(from)s")
+        params["from"] = date_from
+    if date_to:
+        cond.append("day < %(to)s")
+        params["to"] = date_to
+    where = (" where " + " and ".join(cond)) if cond else ""
+    sql = f"""
+      select day, store_id, menu_id, qty_sum, sales_sum, orders, avg_price
+      from feat_menu_daily
+      {where}
+      order by day desc, sales_sum desc
+      limit 500
+    """
+    with psycopg.connect(DB_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            cols = [d[0] for d in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    return {"rows": rows}
+
