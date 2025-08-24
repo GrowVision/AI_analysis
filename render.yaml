@@ -1,6 +1,4 @@
 # render.yaml（フル版：Web / Worker / Cron / Key-Value をまとめて管理）
-previews:
-  generation: automatic   # PRごとに自動でプレビュー環境を作る（不要なら消してOK）
 
 services:
   # --- Web (FastAPIなど) ---
